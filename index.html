@@ -4,383 +4,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSecure Pro v4.0 - Monitoramento Profissional</title>
+    <title>SpyPhone Security Cam v5.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        :root { --primary: #06b6d4; --accent: #f43f5e; --bg: #020617; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--bg);
-            background-image: radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.2) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.1) 0px, transparent 50%);
-            color: #f1f5f9; min-height: 100vh; margin: 0; overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            overflow-x: hidden;
         }
-        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.8); }
-        .video-container { position: relative; overflow: hidden; border-radius: 1.5rem; background: #000; border: 2px solid rgba(255,255,255,0.05); }
-        .scan-line { width: 100%; height: 2px; background: linear-gradient(to right, transparent, var(--primary), transparent); position: absolute; top: 0; left: 0; animation: scan 4s linear infinite; z-index: 10; opacity: 0.3; pointer-events: none; }
-        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-        .rec-dot { width: 10px; height: 10px; background: #f43f5e; border-radius: 50%; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        .btn-active { transform: scale(0.95); opacity: 0.8; }
+        .spy-card { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
+        .btn-primary { background: #2563eb; transition: all 0.2s; }
+        .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-danger { background: #dc2626; transition: all 0.2s; }
+        .btn-danger:hover { background: #b91c1c; }
+        
+        /* Efeito de Scanline da Câmera */
+        .scanline {
+            width: 100%; height: 2px; background: rgba(37, 99, 235, 0.2);
+            position: absolute; top: 0; left: 0; animation: scanning 3s linear infinite;
+            z-index: 5; pointer-events: none;
+        }
+        @keyframes scanning { 0% { top: 0; } 100% { top: 100%; } }
+        
+        /* Fullscreen Video Fix */
+        #video-container:-webkit-full-screen { width: 100%; height: 100%; background: #000; }
+        video::-webkit-media-controls { display:none !important; }
     </style>
     <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "qrcode.react": "https://esm.sh/qrcode.react@3.1.0",
-    "peerjs": "https://esm.sh/peerjs@1.5.2",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "react": "https://esm.sh/react@^18.2.0",
+    "react-dom": "https://esm.sh/react-dom@^18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@^18.2.0/client",
+    "qrcode.react": "https://esm.sh/qrcode.react@^3.1.0",
+    "peerjs": "https://esm.sh/peerjs@^1.4.7",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
 </head>
-<body class="selection:bg-cyan-500/30">
-    <div id="root">
-        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #020617;">
-            <div style="width: 40px; height: 40px; border: 3px solid rgba(6,182,212,0.1); border-top-color: #06b6d4; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <p style="margin-top: 20px; font-size: 10px; font-weight: 900; letter-spacing: 4px; color: #06b6d4; text-transform: uppercase;">Acessando Rede Segura...</p>
-        </div>
-    </div>
-
-    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-
-    <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
-        import ReactDOM from 'react-dom';
-        import { QRCodeSVG } from 'qrcode.react';
-        import Peer from 'peerjs';
-
-        const PEER_CONFIG = {
-            config: {
-                'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
-                ]
-            }
-        };
-
-        const App = () => {
-            const [mode, setMode] = useState('HOME');
-            const [targetId, setTargetId] = useState('');
-
-            useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                const id = params.get('id');
-                if (id) {
-                    setTargetId(id);
-                    setMode('MONITOR');
-                }
-            }, []);
-
-            return (
-                <div className="min-h-screen flex flex-col items-center">
-                    <header className="w-full max-w-5xl flex justify-between items-center p-6 md:p-10">
-                        <div className="flex items-center gap-4 cursor-pointer" onClick={() => { window.location.search = ''; setMode('HOME'); }}>
-                            <div className="bg-cyan-600 p-2.5 rounded-2xl shadow-lg shadow-cyan-900/40">
-                                <i className="fas fa-shield-halved text-white text-xl"></i>
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-black tracking-tighter text-white">WEBSAFE <span className="text-cyan-500">PRO</span></h1>
-                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">v4.0 Enterprise</p>
-                            </div>
-                        </div>
-                        {mode !== 'HOME' && (
-                            <button onClick={() => setMode('HOME')} className="text-xs font-black text-slate-400 hover:text-white uppercase tracking-widest border border-white/10 px-4 py-2 rounded-full transition-all">Voltar</button>
-                        )}
-                    </header>
-
-                    <main className="w-full max-w-5xl flex-grow px-4 pb-20">
-                        {mode === 'HOME' && <Home onSelectMode={setMode} />}
-                        {mode === 'CAMERA' && <CameraMode />}
-                        {mode === 'MONITOR' && <MonitorMode initialId={targetId} />}
-                    </main>
-
-                    <footer className="w-full max-w-5xl p-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-600 text-[10px] font-bold uppercase tracking-widest">
-                        <span>&copy; 2024 Protocolo P2P Encriptado</span>
-                        <div className="flex items-center gap-4">
-                            <span>Status: Blindado</span>
-                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
-                        </div>
-                    </footer>
-                </div>
-            );
-        };
-
-        const Home = ({ onSelectMode }) => (
-            <div className="flex flex-col items-center w-full mt-10">
-                <div className="text-center mb-16 max-w-xl">
-                    <h2 className="text-4xl md:text-5xl font-black text-white mb-6 leading-tight">Privacidade absoluta para sua <span className="text-cyan-500">segurança.</span></h2>
-                    <p className="text-slate-500 font-medium">Transforme dispositivos em câmeras de vigilância P2P sem servidores, sem histórico e sem rastros.</p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
-                    <div onClick={() => onSelectMode('CAMERA')} className="glass p-10 rounded-[2.5rem] cursor-pointer hover:bg-slate-800/80 transition-all group flex flex-col items-center border-2 border-transparent hover:border-rose-500/20 active:scale-[0.98]">
-                        <div className="w-24 h-24 bg-rose-500/10 rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                            <i className="fas fa-video text-5xl text-rose-500"></i>
-                        </div>
-                        <h3 className="text-2xl font-black mb-2 text-white">Transmissor</h3>
-                        <p className="text-slate-500 text-sm text-center mb-8">Ative a câmera deste dispositivo para transmissão segura.</p>
-                        <div className="w-full bg-rose-600 py-4 rounded-2xl font-black text-center shadow-lg shadow-rose-900/30">ATIVAR CÂMERA</div>
-                    </div>
-
-                    <div onClick={() => onSelectMode('MONITOR')} className="glass p-10 rounded-[2.5rem] cursor-pointer hover:bg-slate-800/80 transition-all group flex flex-col items-center border-2 border-transparent hover:border-cyan-500/20 active:scale-[0.98]">
-                        <div className="w-24 h-24 bg-cyan-500/10 rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500">
-                            <i className="fas fa-desktop text-5xl text-cyan-500"></i>
-                        </div>
-                        <h3 className="text-2xl font-black mb-2 text-white">Monitor</h3>
-                        <p className="text-slate-500 text-sm text-center mb-8">Conecte-se a uma câmera remota via ID ou Link direto.</p>
-                        <div className="w-full bg-cyan-600 py-4 rounded-2xl font-black text-center shadow-lg shadow-cyan-900/30">ABRIR PAINEL</div>
-                    </div>
-                </div>
-            </div>
-        );
-
-        const CameraMode = () => {
-            const [id, setId] = useState('');
-            const [status, setStatus] = useState('INICIANDO');
-            const [facingMode, setFacingMode] = useState('environment'); // environment = traseira, user = frontal
-            const videoRef = useRef();
-            const peerRef = useRef();
-            const wakeLockRef = useRef(null);
-
-            // Wake Lock - impede o celular de apagar
-            const requestWakeLock = async () => {
-                try {
-                    if ('wakeLock' in navigator) {
-                        wakeLockRef.current = await navigator.wakeLock.request('screen');
-                        console.log("Wake Lock Ativado");
-                    }
-                } catch (err) {
-                    console.error("Wake Lock falhou:", err);
-                }
-            };
-
-            const initCamera = async (mode) => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
-                        audio: true
-                    });
-                    if (videoRef.current) videoRef.current.srcObject = stream;
-                    return stream;
-                } catch (err) {
-                    alert("Erro ao acessar câmera: " + err.message);
-                }
-            };
-
-            useEffect(() => {
-                const camId = 'WEB-' + Math.floor(Math.random() * 90000 + 10000);
-                const peer = new Peer(camId, PEER_CONFIG);
-                peerRef.current = peer;
-
-                peer.on('open', (newId) => {
-                    setId(newId);
-                    setStatus('TRANSMITINDO');
-                    requestWakeLock();
-                });
-
-                peer.on('call', async (call) => {
-                    const stream = videoRef.current.srcObject || await initCamera(facingMode);
-                    call.answer(stream);
-                    setStatus('EM USO');
-                });
-
-                initCamera(facingMode);
-
-                return () => {
-                    peer.destroy();
-                    if (wakeLockRef.current) wakeLockRef.current.release();
-                    const stream = videoRef.current?.srcObject;
-                    if (stream) stream.getTracks().forEach(t => t.stop());
-                };
-            }, []);
-
-            const toggleCamera = async () => {
-                const newMode = facingMode === 'user' ? 'environment' : 'user';
-                setFacingMode(newMode);
-                const stream = await initCamera(newMode);
-                // Se houver uma chamada ativa (PeerJS não lida bem com troca de stream a quente sem reconectar)
-                // O monitor precisará reconectar se a câmera mudar drasticamente o objeto de stream
-                alert("Câmera alterada. Caso o monitor pare de ver, ele deve clicar em CONECTAR novamente.");
-            };
-
-            const shareUrl = `${window.location.origin}${window.location.pathname}?id=${id}`;
-
-            return (
-                <div className="flex flex-col items-center gap-8 animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="video-container aspect-video w-full max-w-3xl shadow-2xl">
-                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                        <div className="scan-line"></div>
-                        <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-white/10">
-                            <div className="rec-dot"></div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-white">{status}</span>
-                        </div>
-                        <button onClick={toggleCamera} className="absolute bottom-6 right-6 w-14 h-14 bg-white/10 hover:bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center transition-all border border-white/10 text-white">
-                            <i className="fas fa-camera-rotate text-xl"></i>
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-                        <div className="glass p-8 rounded-3xl flex flex-col justify-center">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">ID ÚNICO DA CÂMERA</span>
-                            <div className="text-3xl font-mono font-black text-white mb-4 tracking-tighter">{id || 'GERANDO...'}</div>
-                            <button onClick={() => { navigator.clipboard.writeText(shareUrl); alert("Link copiado!"); }} className="bg-rose-600 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-rose-900/30">Copiar Link de Acesso</button>
-                        </div>
-                        <div className="glass p-8 rounded-3xl flex flex-col items-center justify-center">
-                             <div className="bg-white p-3 rounded-2xl mb-4">
-                                {id ? <QRCodeSVG value={shareUrl} size={120} /> : <div className="w-[120px] h-[120px] bg-slate-800 animate-pulse rounded-lg"></div>}
-                             </div>
-                             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Escaneie para Monitorar</p>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const MonitorMode = ({ initialId }) => {
-            const [targetId, setTargetId] = useState(initialId || '');
-            const [active, setActive] = useState(false);
-            const [recording, setRecording] = useState(false);
-            const [status, setStatus] = useState('IDLE');
-            const videoRef = useRef();
-            const peerRef = useRef();
-            const recorderRef = useRef(null);
-            const chunksRef = useRef([]);
-
-            useEffect(() => {
-                const peer = new Peer(PEER_CONFIG);
-                peerRef.current = peer;
-                if (initialId) connect(initialId);
-                return () => peer.destroy();
-            }, []);
-
-            const connect = (id) => {
-                if (!id) return;
-                setStatus('CONNECTING');
-                const call = peerRef.current.call(id, new MediaStream());
-                
-                call.on('stream', (stream) => {
-                    setActive(true);
-                    setStatus('LIVE');
-                    if (videoRef.current) videoRef.current.srcObject = stream;
-                });
-
-                call.on('error', (err) => {
-                    alert("Erro na conexão: " + err.message);
-                    setStatus('ERROR');
-                });
-
-                // Timeout de conexão
-                setTimeout(() => {
-                    if (status === 'CONNECTING') {
-                        alert("Não foi possível conectar. Verifique se o ID está correto e a câmera ativa.");
-                        setStatus('IDLE');
-                    }
-                }, 10000);
-            };
-
-            const toggleRecording = () => {
-                if (recording) {
-                    recorderRef.current.stop();
-                    setRecording(false);
-                } else {
-                    const stream = videoRef.current.srcObject;
-                    if (!stream) return;
-                    
-                    chunksRef.current = [];
-                    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                    recorderRef.current = recorder;
-                    
-                    recorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) chunksRef.current.push(e.data);
-                    };
-
-                    recorder.onstop = () => {
-                        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `gravação-${new Date().getTime()}.webm`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    };
-
-                    recorder.start();
-                    setRecording(true);
-                }
-            };
-
-            return (
-                <div className="flex flex-col items-center gap-8 animate-in zoom-in-95 duration-500">
-                    <div className="video-container aspect-video w-full max-w-4xl shadow-2xl flex items-center justify-center relative">
-                        {active ? (
-                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain" />
-                        ) : (
-                            <div className="flex flex-col items-center gap-4 text-slate-800">
-                                <i className={`fas ${status === 'CONNECTING' ? 'fa-circle-notch fa-spin text-cyan-500' : 'fa-video-slash'} text-6xl`}></i>
-                                <p className="font-black text-[10px] uppercase tracking-[0.4em]">{status === 'CONNECTING' ? 'Buscando sinal...' : 'Sinal Indisponível'}</p>
-                            </div>
-                        )}
-                        <div className="scan-line"></div>
-                        
-                        {/* HUD Painel */}
-                        <div className="absolute top-6 left-6 flex items-center gap-3">
-                            <div className="bg-black/60 backdrop-blur px-4 py-2 rounded-full border border-white/10 flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${active ? 'bg-cyan-500 shadow-[0_0_8px_#06b6d4]' : 'bg-slate-700'}`}></div>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white">{status}</span>
-                            </div>
-                        </div>
-
-                        {active && (
-                            <div className="absolute bottom-6 right-6 flex gap-3">
-                                <button 
-                                    onClick={toggleRecording} 
-                                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all border border-white/10 shadow-xl ${recording ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/10 text-white backdrop-blur hover:bg-white/20'}`}
-                                >
-                                    {recording ? <i className="fas fa-stop text-xl"></i> : <i className="fas fa-circle text-xl"></i>}
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        const video = videoRef.current;
-                                        const canvas = document.createElement('canvas');
-                                        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                                        canvas.getContext('2d').drawImage(video, 0, 0);
-                                        const link = document.createElement('a');
-                                        link.download = `foto-${Date.now()}.png`; link.href = canvas.toDataURL(); link.click();
-                                    }} 
-                                    className="w-14 h-14 bg-white/10 backdrop-blur hover:bg-white/20 rounded-2xl flex items-center justify-center transition-all border border-white/10 text-white shadow-xl"
-                                >
-                                    <i className="fas fa-camera text-xl"></i>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="w-full max-w-4xl glass p-8 rounded-[2.5rem] flex flex-col md:flex-row gap-4">
-                        <input 
-                            value={targetId} 
-                            onChange={e => setTargetId(e.target.value.trim())} 
-                            placeholder="Insira o ID da Câmera" 
-                            className="bg-black/50 border border-white/10 rounded-2xl px-6 py-4 flex-grow font-mono font-bold text-lg text-white outline-none focus:border-cyan-500 transition-all" 
-                        />
-                        <button 
-                            onClick={() => connect(targetId)} 
-                            disabled={status === 'CONNECTING'}
-                            className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 px-10 py-4 rounded-2xl font-black text-white shadow-lg shadow-cyan-900/40 transition-all flex items-center justify-center gap-3"
-                        >
-                            <i className="fas fa-bolt"></i> CONECTAR
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
-  "name": "Segurança Web v4.0 Pro",
-  "description": "Uma aplicação profissional de monitoramento P2P usando PeerJS, com suporte a QR Code, gravação e troca de câmera.",
+  "name": "SpyPhone Security Cam v5.0",
+  "description": "Sistema de vigilância profissional P2P com modo anti-hibernação e tela cheia.",
   "requestFramePermissions": [
     "camera",
     "microphone"

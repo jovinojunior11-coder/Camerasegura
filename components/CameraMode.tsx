@@ -5,22 +5,22 @@ import Peer from 'peerjs';
 
 const PEER_CONFIG = {
   config: {
-    'iceServers': [
+    iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' }
-    ]
-  }
+      { urls: 'stun:stun.services.mozilla.com' }
+    ],
+  },
 };
 
 const CameraMode: React.FC = () => {
   const [peerId, setPeerId] = useState<string>('');
-  const [status, setStatus] = useState<'OFFLINE' | 'AGUARDANDO' | 'ONLINE'>('OFFLINE');
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'OFF' | 'READY' | 'STREAMING'>('OFF');
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const peerRef = useRef<Peer | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const wakeLockRef = useRef<any>(null);
@@ -29,148 +29,138 @@ const CameraMode: React.FC = () => {
     try {
       if ('wakeLock' in navigator) {
         wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-        console.log("Wake Lock ativo: a tela não irá apagar.");
       }
-    } catch (err) {
-      console.warn("Wake Lock falhou:", err);
-    }
+    } catch (err) { console.warn("WakeLock failed"); }
   };
 
-  const startCamera = async (mode: 'user' | 'environment') => {
+  const initCamera = async (mode: 'user' | 'environment') => {
     try {
-      // Para tracks anteriores se existirem
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: mode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
+        video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: true
       });
-
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
       return stream;
     } catch (err) {
-      console.error("Erro ao acessar câmera:", err);
-      setError("Permissão de câmera negada ou erro de hardware.");
+      alert("Erro ao acessar câmera. Verifique as permissões.");
       return null;
     }
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(err => {
+        alert(`Erro ao entrar em tela cheia: ${err.message}`);
+      });
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
   useEffect(() => {
-    const camId = 'WEB-' + Math.floor(Math.random() * 90000 + 10000);
-    const peer = new Peer(camId, PEER_CONFIG);
+    const peer = new Peer('SPY-' + Math.floor(Math.random() * 9000 + 1000), PEER_CONFIG);
     peerRef.current = peer;
 
     peer.on('open', (id) => {
       setPeerId(id);
-      setStatus('AGUARDANDO');
+      setStatus('READY');
       requestWakeLock();
     });
 
     peer.on('call', (call) => {
       if (streamRef.current) {
         call.answer(streamRef.current);
-        setStatus('ONLINE');
-      } else {
-        startCamera(facingMode).then(stream => {
-          if (stream) {
-            call.answer(stream);
-            setStatus('ONLINE');
-          }
-        });
+        setStatus('STREAMING');
       }
+      call.on('close', () => setStatus('READY'));
     });
 
-    peer.on('error', (err) => {
-      console.error("PeerJS error:", err);
-      if (err.type === 'peer-unavailable') return;
-      setError("Falha na rede P2P: " + err.type);
-    });
-
-    startCamera(facingMode);
+    initCamera(facingMode);
 
     return () => {
       peer.destroy();
-      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-      if (wakeLockRef.current) wakeLockRef.current.release();
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      wakeLockRef.current?.release();
     };
   }, []);
 
-  const toggleCamera = async () => {
-    const nextMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(nextMode);
-    await startCamera(nextMode);
-    // Nota: Em conexões P2P ativas, trocar o stream exige que o monitor reconecte.
-    if (status === 'ONLINE') {
-      alert("Câmera alterada. O monitor pode precisar reconectar para atualizar o feed.");
-    }
+  const changeCam = async () => {
+    const next = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(next);
+    await initCamera(next);
   };
 
   const shareUrl = `${window.location.origin}${window.location.pathname}?id=${peerId}#monitor`;
 
   return (
-    <div className="w-full flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="video-container w-full max-w-3xl aspect-video relative group border-2 border-rose-500/20 shadow-2xl">
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          muted 
-          className="w-full h-full object-cover"
-        />
-        <div className="scan-line"></div>
+    <div className="w-full max-w-5xl flex flex-col gap-6 animate-in fade-in duration-500">
+      <div 
+        ref={containerRef}
+        id="video-container"
+        className={`relative spy-card overflow-hidden bg-black aspect-video flex items-center justify-center ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''}`}
+      >
+        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+        <div className="scanline"></div>
         
-        <div className="absolute top-6 left-6 flex items-center gap-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 z-20">
-          <span className={`w-2 h-2 rounded-full ${status === 'ONLINE' ? 'bg-green-500 animate-pulse' : 'bg-rose-500 animate-pulse'}`}></span>
-          <span className="text-[10px] font-black uppercase tracking-widest text-white">
-            {status === 'ONLINE' ? 'EM TRANSMISSÃO' : 'AGUARDANDO CONEXÃO'}
-          </span>
-        </div>
-
-        <div className="absolute bottom-6 right-6 flex gap-3 z-20">
-          <button 
-            onClick={toggleCamera}
-            className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl backdrop-blur-xl border border-white/10 transition-all active:scale-95 text-white shadow-xl"
-            title="Trocar Câmera"
-          >
-            <i className="fas fa-camera-rotate text-xl"></i>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 w-full max-w-3xl">
-        <div className="lg:col-span-3 glass p-8 rounded-[2.5rem] flex flex-col justify-center">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">ID DA UNIDADE</h3>
-            <div className="bg-slate-950 border border-white/5 p-5 rounded-2xl text-3xl font-mono font-black text-white tracking-widest text-center shadow-inner">
-                {peerId || '...'}
+        {/* HUD Elements */}
+        <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+            <div className="bg-black/60 backdrop-blur px-3 py-1 rounded-md border border-white/10 flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${status === 'STREAMING' ? 'bg-red-500 animate-pulse' : 'bg-blue-500'}`}></div>
+                <span className="text-[10px] font-bold tracking-widest">{status === 'STREAMING' ? 'REC - LIVE' : 'STANDBY'}</span>
             </div>
-            <button 
-                onClick={() => {
-                    navigator.clipboard.writeText(shareUrl);
-                    alert("Link copiado para a área de transferência!");
-                }}
-                className="mt-6 w-full bg-rose-600 hover:bg-rose-500 text-white py-4 rounded-xl font-black text-sm tracking-widest transition-all shadow-lg shadow-rose-900/40"
-            >
-                COPIAR LINK DE ACESSO
+            {peerId && <div className="bg-black/40 text-[9px] px-2 py-1 rounded font-mono">ID: {peerId}</div>}
+        </div>
+
+        <div className="absolute bottom-4 right-4 z-10 flex gap-2">
+            <button onClick={changeCam} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg backdrop-blur-md border border-white/10 transition-all">
+                <i className="fas fa-sync-alt"></i>
+            </button>
+            <button onClick={toggleFullscreen} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg backdrop-blur-md border border-white/10 transition-all">
+                <i className={`fas ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
             </button>
         </div>
 
-        <div className="lg:col-span-2 glass p-8 rounded-[2.5rem] flex flex-col items-center justify-center border-rose-500/10">
-          <div className="bg-white p-3 rounded-2xl mb-4 shadow-xl">
-            {peerId ? <QRCodeSVG value={shareUrl} size={130} /> : <div className="w-[130px] h-[130px] bg-slate-800 animate-pulse rounded-xl"></div>}
-          </div>
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Acesso Rápido</p>
-        </div>
+        {isFullscreen && (
+            <button 
+                onClick={toggleFullscreen} 
+                className="absolute top-4 right-4 z-20 bg-red-600/50 hover:bg-red-600 p-2 rounded text-[10px] font-bold"
+            >
+                SAIR TELA CHEIA
+            </button>
+        )}
       </div>
-      {error && <p className="text-rose-500 font-bold text-sm bg-rose-500/10 px-4 py-2 rounded-lg">{error}</p>}
+
+      {!isFullscreen && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="spy-card p-6 md:col-span-2">
+                <h3 className="text-sm font-bold text-slate-400 mb-4 flex items-center gap-2">
+                    <i className="fas fa-link text-blue-500"></i> CONEXÃO REMOTA
+                </h3>
+                <div className="flex flex-col gap-4">
+                    <div className="bg-slate-900 p-4 rounded-lg font-mono text-xl text-center border border-white/5">
+                        {peerId || 'GERANDO ID...'}
+                    </div>
+                    <button 
+                        onClick={() => { navigator.clipboard.writeText(shareUrl); alert("Link de monitoramento copiado!"); }}
+                        className="btn-primary w-full py-3 rounded-lg font-bold text-sm"
+                    >
+                        COPIAR LINK DE ACESSO
+                    </button>
+                </div>
+            </div>
+
+            <div className="spy-card p-6 flex flex-col items-center justify-center">
+                <div className="bg-white p-2 rounded-lg mb-3">
+                    {peerId ? <QRCodeSVG value={shareUrl} size={120} /> : <div className="w-[120px] h-[120px] bg-slate-800 animate-pulse"></div>}
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 tracking-tighter">QR CODE DE PAREAMENTO</span>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

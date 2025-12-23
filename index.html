@@ -15,24 +15,24 @@
             color: #f8fafc;
             margin: 0;
             overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
-        .spy-card { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
-        .btn-primary { background: #2563eb; transition: all 0.2s; }
+        .spy-card { background: #1e293b; border: 1px solid #334155; border-radius: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
+        .btn-primary { background: #2563eb; transition: all 0.2s ease; }
         .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-danger { background: #dc2626; transition: all 0.2s ease; }
+        .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
         
         #app-loader {
             position: fixed; inset: 0; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; background: #0f172a; z-index: 100;
-            transition: opacity 0.5s ease-out;
+            align-items: center; justify-content: center; background: #0f172a; z-index: 1000;
         }
-        .loader-spinner { width: 50px; height: 50px; border: 4px solid #1e293b; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .loader-spinner { width: 48px; height: 48px; border: 4px solid #1e293b; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        .error-msg { display: none; color: #ef4444; font-size: 12px; font-weight: 700; margin-top: 20px; text-align: center; max-width: 80%; }
-        
         .scanline {
-            width: 100%; height: 2px; background: rgba(37, 99, 235, 0.2);
-            position: absolute; top: 0; left: 0; animation: scanning 3s linear infinite;
+            width: 100%; height: 2px; background: rgba(59, 130, 246, 0.15);
+            position: absolute; top: 0; left: 0; animation: scanning 4s linear infinite;
             z-index: 5; pointer-events: none;
         }
         @keyframes scanning { 0% { top: 0; } 100% { top: 100%; } }
@@ -46,39 +46,36 @@
     "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
     "qrcode.react": "https://esm.sh/qrcode.react@3.1.0",
     "peerjs": "https://esm.sh/peerjs@1.4.7",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
 </head>
 <body>
     <div id="app-loader">
-        <div class="loader-spinner" id="main-spinner"></div>
-        <div id="loader-text" style="margin-top: 25px; font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #334155; text-transform: uppercase;">
-            Carregando SpyPhone
-        </div>
-        <div id="error-box" class="error-msg">
-            <p>O CARREGAMENTO DEMOROU DEMAIS.</p>
-            <p style="color: #64748b; font-weight: 500; margin-top: 5px;">Verifique sua conexão ou tente recarregar.</p>
-            <button onclick="window.location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #334155; color: white; border-radius: 8px; font-size: 10px;">RECARREGAR AGORA</button>
+        <div class="loader-spinner"></div>
+        <div style="margin-top: 24px; font-size: 10px; font-weight: 900; letter-spacing: 4px; color: #475569; text-transform: uppercase;">
+            Autenticando Sistema
         </div>
     </div>
 
     <div id="root"></div>
 
+    <!-- Caminho relativo para funcionar no GitHub Pages -->
     <script type="module" src="./index.tsx"></script>
 
     <script>
-        // Failsafe: Se após 10 segundos o loader ainda estiver aqui, mostra erro
-        setTimeout(() => {
-            const loader = document.getElementById('app-loader');
-            if (loader && loader.style.display !== 'none') {
-                document.getElementById('main-spinner').style.display = 'none';
-                document.getElementById('loader-text').style.display = 'none';
-                document.getElementById('error-box').style.display = 'block';
-            }
-        }, 12000);
+        // Failsafe para o loader
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const loader = document.getElementById('app-loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.style.display = 'none', 500);
+                }
+            }, 800);
+        });
     </script>
 </body>
 </html>

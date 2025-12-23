@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppMode } from '../types';
+import { AppMode } from '../types.ts';
 
 interface HomeProps {
   onSelectMode: (mode: AppMode) => void;
@@ -69,11 +69,6 @@ const Home: React.FC<HomeProps> = ({ onSelectMode }) => {
         <p className="text-[11px] text-center max-w-sm opacity-60">
           A câmera gera um ID único. O monitor se conecta a esse ID através de um túnel criptografado direto (P2P). Use o QR Code para conexões instantâneas.
         </p>
-      </div>
-
-      <div className="mt-12 flex items-center gap-4 text-slate-600 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
-        <i className="fab fa-github text-2xl"></i>
-        <span className="text-[10px] font-black tracking-[0.4em] uppercase">WebSecure Open-Source Project</span>
       </div>
     </div>
   );

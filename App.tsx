@@ -15,11 +15,13 @@ const App: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const idParam = params.get('id');
 
-      if (hash === '#camera') {
-        setMode(AppMode.CAMERA);
-      } else if (hash === '#monitor' || idParam) {
+      if (idParam) {
+        setTargetId(idParam);
         setMode(AppMode.MONITOR);
-        if (idParam) setTargetId(idParam);
+      } else if (hash === '#camera') {
+        setMode(AppMode.CAMERA);
+      } else if (hash === '#monitor') {
+        setMode(AppMode.MONITOR);
       } else {
         setMode(AppMode.IDLE);
       }
@@ -31,9 +33,13 @@ const App: React.FC = () => {
   }, []);
 
   const navigateTo = (newMode: AppMode) => {
-    if (newMode === AppMode.CAMERA) window.location.hash = 'camera';
-    else if (newMode === AppMode.MONITOR) window.location.hash = 'monitor';
-    else {
+    if (newMode === AppMode.CAMERA) {
+      window.location.hash = 'camera';
+    } else if (newMode === AppMode.MONITOR) {
+      window.location.hash = 'monitor';
+    } else {
+      // Limpar URL ao voltar para o início
+      window.history.pushState("", document.title, window.location.pathname + window.location.hash);
       const url = new URL(window.location.href);
       url.search = '';
       url.hash = '';
@@ -45,7 +51,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen text-slate-200 p-4 md:p-8 flex flex-col items-center">
-      <header className="w-full max-w-5xl flex justify-between items-center mb-12">
+      <header className="w-full max-w-5xl flex justify-between items-center mb-8 md:mb-12">
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigateTo(AppMode.IDLE)}>
           <div className="bg-blue-600 p-2 rounded-lg shadow-lg group-hover:scale-110 transition-transform">
             <i className="fas fa-user-secret text-xl text-white"></i>
@@ -54,16 +60,16 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold tracking-tight text-white leading-none">
               SpyPhone <span className="text-blue-500">Security</span>
             </h1>
-            <span className="text-[10px] font-black text-slate-500 uppercase">v5.0 Enterprise</span>
+            <span className="text-[10px] font-black text-slate-500 uppercase">v5.0 Stable</span>
           </div>
         </div>
         
         {mode !== AppMode.IDLE && (
           <button 
             onClick={() => navigateTo(AppMode.IDLE)}
-            className="bg-slate-800 hover:bg-slate-700 px-5 py-2 rounded-lg text-slate-300 transition-all border border-white/5 flex items-center gap-2 text-xs font-bold"
+            className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-slate-300 transition-all border border-white/5 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
           >
-            <i className="fas fa-home"></i> INÍCIO
+            <i className="fas fa-arrow-left"></i> Voltar
           </button>
         )}
       </header>
@@ -74,8 +80,8 @@ const App: React.FC = () => {
         {mode === AppMode.MONITOR && <MonitorMode initialTargetId={targetId} />}
       </main>
 
-      <footer className="mt-16 py-8 border-t border-white/5 w-full max-w-5xl text-center text-slate-600 text-[10px] font-bold tracking-widest uppercase">
-        SpyPhone Security Cam &copy; {new Date().getFullYear()} • Conexão P2P Criptografada
+      <footer className="mt-16 py-8 border-t border-white/5 w-full max-w-5xl text-center text-slate-600 text-[10px] font-black tracking-widest uppercase">
+        SpyPhone Cam &copy; {new Date().getFullYear()} • Versão Estável P2P
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
 {
   "name": "SpyPhone Security Cam v5.0",
-  "description": "Sistema de vigilância profissional P2P com modo anti-hibernação e tela cheia.",
+  "description": "Transforme seu celular antigo em uma câmera de segurança profissional com modo anti-hibernação.",
   "requestFramePermissions": [
     "camera",
     "microphone"

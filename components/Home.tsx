@@ -60,7 +60,18 @@ const Home: React.FC<HomeProps> = ({ onSelectMode }) => {
         </div>
       </div>
 
-      <div className="mt-20 flex items-center gap-4 text-slate-600 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
+      <div className="mt-16 flex flex-col items-center gap-4 text-slate-500">
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em]">
+          <span className="w-12 h-[1px] bg-slate-800"></span>
+          Como funciona
+          <span className="w-12 h-[1px] bg-slate-800"></span>
+        </div>
+        <p className="text-[11px] text-center max-w-sm opacity-60">
+          A câmera gera um ID único. O monitor se conecta a esse ID através de um túnel criptografado direto (P2P). Use o QR Code para conexões instantâneas.
+        </p>
+      </div>
+
+      <div className="mt-12 flex items-center gap-4 text-slate-600 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
         <i className="fab fa-github text-2xl"></i>
         <span className="text-[10px] font-black tracking-[0.4em] uppercase">WebSecure Open-Source Project</span>
       </div>

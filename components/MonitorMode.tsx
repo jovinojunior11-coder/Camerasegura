@@ -7,11 +7,9 @@ const PEER_CONFIG = {
     'iceServers': [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { 
-        urls: 'turn:relay.metered.ca:443', 
-        username: 'openrelayproject', 
-        password: 'openrelayproject' 
-      }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
     ]
   }
 };
@@ -24,9 +22,12 @@ const MonitorMode: React.FC<MonitorModeProps> = ({ initialTargetId = '' }) => {
   const [targetId, setTargetId] = useState<string>(initialTargetId);
   const [status, setStatus] = useState<'OFFLINE' | 'SYNC' | 'ONLINE'>('OFFLINE');
   const [error, setError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const peerRef = useRef<Peer | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const takeSnapshot = () => {
     if (videoRef.current && canvasRef.current) {
@@ -38,9 +39,40 @@ const MonitorMode: React.FC<MonitorModeProps> = ({ initialTargetId = '' }) => {
       ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       const link = document.createElement('a');
-      link.download = `websecure-capture-${Date.now()}.png`;
-      link.href = canvas.toDataURL();
+      link.download = `websecure-shot-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
       link.click();
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      recorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      const stream = videoRef.current?.srcObject as MediaStream;
+      if (!stream) return;
+
+      chunksRef.current = [];
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `websecure-rec-${Date.now()}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      recorder.start();
+      setIsRecording(true);
     }
   };
 
@@ -48,16 +80,23 @@ const MonitorMode: React.FC<MonitorModeProps> = ({ initialTargetId = '' }) => {
     const peer = new Peer(PEER_CONFIG);
     peerRef.current = peer;
 
-    peer.on('error', () => {
-      setError('Falha na comunicação P2P.');
+    peer.on('error', (err) => {
+      console.error("Monitor Peer Error:", err);
+      setError('Erro de conexão. Verifique se o ID está correto.');
       setStatus('OFFLINE');
     });
 
     if (initialTargetId) {
-      setTimeout(() => connectToPeer(initialTargetId), 1000);
+      // Pequeno delay para garantir que o Peer está pronto
+      setTimeout(() => connectToPeer(initialTargetId), 800);
     }
 
-    return () => peer.destroy();
+    return () => {
+      peer.destroy();
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.stop();
+      }
+    };
   }, []);
 
   const connectToPeer = (idToConnect: string) => {
@@ -65,23 +104,29 @@ const MonitorMode: React.FC<MonitorModeProps> = ({ initialTargetId = '' }) => {
     setError(null);
     setStatus('SYNC');
     
+    // IMPORTANTE: PeerJS precisa de um stream (mesmo que vazio) para iniciar a chamada
     const call = peerRef.current.call(idToConnect, new MediaStream());
+    
     call.on('stream', (remoteStream) => {
+      console.log("Stream remoto recebido!");
       setStatus('ONLINE');
-      if (videoRef.current) videoRef.current.srcObject = remoteStream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = remoteStream;
+      }
     });
 
+    // Fallback caso a conexão demore muito
     setTimeout(() => {
       if (status === 'SYNC') {
-        setError('Tempo esgotado. Verifique o ID da câmera.');
+        setError('O transmissor não respondeu. Verifique se a câmera está ativa.');
         setStatus('OFFLINE');
       }
-    }, 12000);
+    }, 15000);
   };
 
   return (
     <div className="w-full flex flex-col items-center gap-8 animate-in zoom-in-95 duration-500">
-      <div className="video-container w-full max-w-4xl aspect-video glass flex items-center justify-center relative border-2 border-cyan-500/20 shadow-2xl shadow-cyan-500/10">
+      <div className="video-container w-full max-w-4xl aspect-video glass flex items-center justify-center relative border-2 border-cyan-500/20 shadow-2xl">
         {status === 'ONLINE' ? (
           <video 
             ref={videoRef} 
@@ -91,56 +136,74 @@ const MonitorMode: React.FC<MonitorModeProps> = ({ initialTargetId = '' }) => {
           />
         ) : (
           <div className="flex flex-col items-center gap-6">
-            <div className="w-24 h-24 rounded-full border-4 border-dashed border-cyan-500/20 flex items-center justify-center animate-spin-slow">
-                <i className={`fas ${status === 'SYNC' ? 'fa-sync fa-spin text-cyan-500' : 'fa-video-slash text-slate-700'} text-4xl`}></i>
+            <div className={`w-20 h-20 rounded-full border-2 border-dashed ${status === 'SYNC' ? 'border-cyan-500 animate-spin' : 'border-slate-800'} flex items-center justify-center`}>
+                <i className={`fas ${status === 'SYNC' ? 'fa-sync text-cyan-500' : 'fa-video-slash text-slate-800'} text-3xl`}></i>
             </div>
-            <p className="font-black text-xs tracking-[0.4em] text-slate-600 uppercase">
-                {status === 'SYNC' ? 'Sincronizando feed...' : 'Aguardando Conexão'}
+            <p className="font-black text-[10px] tracking-[0.4em] text-slate-600 uppercase">
+                {status === 'SYNC' ? 'SINCRONIZANDO SINAL...' : 'SINAL INDISPONÍVEL'}
             </p>
           </div>
         )}
         
-        {/* HUD Monitor */}
-        <div className="absolute top-6 left-6 z-20 flex flex-col gap-2">
+        <div className="scan-line"></div>
+        
+        {/* HUD Overlay */}
+        <div className="absolute top-6 left-6 z-20 flex flex-col gap-3">
             <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
-                <span className={`status-dot ${status === 'ONLINE' ? 'bg-cyan-500 shadow-[0_0_10px_#06b6d4]' : 'bg-slate-600'}`}></span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white">{status}</span>
+                <span className={`w-2 h-2 rounded-full ${status === 'ONLINE' ? 'bg-cyan-400 shadow-[0_0_10px_#22d3ee]' : 'bg-slate-700'}`}></span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white">{status === 'ONLINE' ? 'LIVE FEED' : 'NO SIGNAL'}</span>
             </div>
+            {isRecording && (
+                <div className="bg-rose-600/80 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 animate-pulse">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">GRAVANDO</span>
+                </div>
+            )}
         </div>
 
         {status === 'ONLINE' && (
             <div className="absolute bottom-6 right-6 z-20 flex gap-3">
                 <button 
-                    onClick={takeSnapshot}
-                    className="bg-cyan-600 hover:bg-cyan-500 text-white p-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                    onClick={toggleRecording}
+                    className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-2 ${isRecording ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/10 text-white backdrop-blur-xl border border-white/10 hover:bg-white/20'}`}
+                    title={isRecording ? "Parar Gravação" : "Gravar Vídeo"}
                 >
-                    <i className="fas fa-camera"></i>
+                    <i className={`fas ${isRecording ? 'fa-stop' : 'fa-circle'} text-xl`}></i>
+                </button>
+                <button 
+                    onClick={takeSnapshot}
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white p-4 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-2 shadow-cyan-900/40"
+                    title="Capturar Foto"
+                >
+                    <i className="fas fa-camera text-xl"></i>
                 </button>
             </div>
         )}
         <canvas ref={canvasRef} className="hidden"></canvas>
       </div>
 
-      <div className="w-full max-w-4xl glass p-10 rounded-[2.5rem] border-cyan-500/10">
-        <form onSubmit={(e) => { e.preventDefault(); connectToPeer(targetId.trim()); }} className="flex flex-col md:flex-row gap-5">
-          <div className="flex-grow relative group">
-            <i className="fas fa-terminal absolute left-5 top-1/2 -translate-y-1/2 text-cyan-500/50"></i>
+      <div className="w-full max-w-4xl glass p-8 md:p-10 rounded-[2.5rem] border-cyan-500/10">
+        <form onSubmit={(e) => { e.preventDefault(); connectToPeer(targetId.trim()); }} className="flex flex-col md:flex-row gap-4">
+          <div className="flex-grow relative">
+            <i className="fas fa-key absolute left-5 top-1/2 -translate-y-1/2 text-cyan-500/50"></i>
             <input 
               type="text" 
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              placeholder="Digite o ID da Unidade Remota" 
-              className="w-full bg-slate-950/80 border-2 border-slate-800 focus:border-cyan-500/50 rounded-2xl py-5 pl-14 pr-6 text-white font-mono text-lg transition-all outline-none"
+              placeholder="Digite o ID da Câmera (ex: WEB-12345)" 
+              className="w-full bg-slate-950 border-2 border-slate-800 focus:border-cyan-500/40 rounded-2xl py-5 pl-14 pr-6 text-white font-mono text-lg transition-all outline-none shadow-inner"
             />
           </div>
           <button 
             type="submit"
-            className="bg-cyan-600 hover:bg-cyan-500 text-white font-black px-12 rounded-2xl shadow-xl shadow-cyan-900/30 transition-all flex items-center justify-center gap-3 whitespace-nowrap"
+            disabled={status === 'SYNC'}
+            className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 text-white font-black px-12 py-5 rounded-2xl shadow-xl shadow-cyan-900/40 transition-all flex items-center justify-center gap-3"
           >
-            <i className="fas fa-plug"></i> CONECTAR
+            {status === 'SYNC' ? <i className="fas fa-sync fa-spin"></i> : <i className="fas fa-bolt"></i>}
+            CONECTAR AGORA
           </button>
         </form>
-        {error && <p className="mt-4 text-rose-500 text-xs font-bold text-center uppercase tracking-widest">{error}</p>}
+        {error && <p className="mt-4 text-rose-500 text-xs font-bold text-center uppercase tracking-widest bg-rose-500/10 py-2 rounded-lg">{error}</p>}
       </div>
     </div>
   );

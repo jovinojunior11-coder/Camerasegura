@@ -1,6 +1,6 @@
 {
   "name": "Segurança Web v4.0 Pro",
-  "description": "Uma aplicação profissional de monitoramento P2P usando PeerJS, com suporte a QR Code e interface moderna.",
+  "description": "Uma aplicação profissional de monitoramento P2P usando PeerJS, com suporte a QR Code, gravação e troca de câmera.",
   "requestFramePermissions": [
     "camera",
     "microphone"
